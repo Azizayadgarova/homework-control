@@ -7,26 +7,52 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      trim: true,
     },
     password: {
       type: String,
       required: true,
+      minlength: 6,
     },
     role: {
       type: String,
       enum: ["admin", "teacher", "student", "parent"],
       default: "student",
     },
-    fullName: String,
-    group: { type: mongoose.Schema.Types.ObjectId, ref: "Group" },
+    fullName: {
+      type: String,
+      trim: true,
+    },
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Group",
+      default: null,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Password hash qilish
-userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  this.password = await bcrypt.hash(this.password, 10);
+// 🔐 PASSWORD HASH (OSILIB QOLMAYDIGAN TO‘G‘RI USUL)
+userSchema.pre("save", async function (next) {
+  try {
+    // Agar password o‘zgarmagan bo‘lsa, davom et
+    if (!this.isModified("password")) {
+      return next();
+    }
+
+    // Password hash
+    this.password = await bcrypt.hash(this.password, 10);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
+
+// 🔑 PASSWORD TEKSHIRISH (LOGIN UCHUN QO‘SHIMCHA)
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 export default mongoose.model("User", userSchema);
